@@ -51,8 +51,7 @@ def test_pipeline():
         print(f"  Content: {doc.page_content}")
         
     print("=== Step 7: Initializing ChatBot Pipeline ===")
-    # Set dummy API key to test build pipeline
-    os.environ["GOOGLE_API_KEY"] = "AIzaSy_mock_api_key_for_testing"
+    os.environ["GOOGLE_API_KEY"] = "MOCK_GEMINI_API_KEY_FOR_TESTING"
     bot = ChatBot(vstore)
     chain_built = bot.build_rag_chain()
     print(f"RAG Chain Build success: {chain_built}")
