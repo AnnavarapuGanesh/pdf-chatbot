@@ -1,0 +1,12 @@
+langchain
+langchain-community
+langchain-google-genai
+faiss-cpu
+chromadb
+pymupdf
+streamlit
+python-dotenv
+sentence-transformers
+google-generativeai
+huggingface-hub
+torchvision
