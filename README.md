@@ -16,7 +16,7 @@ An AI-powered chatbot that allows users to upload PDF documents and ask question
 
 ## Tech Stack
 - **Web UI**: Streamlit
-- **LLM Engine**: Google Gemini 1.5 Flash
+- **LLM Engine**: Google Gemini 2.5 Flash
 - **Orchestration**: LangChain
 - **Embeddings**: HuggingFace (`sentence-transformers/all-MiniLM-L6-v2`)
 - **Vector Database**: FAISS (Fallback to ChromaDB)
