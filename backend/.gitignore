@@ -1,0 +1,17 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Vector indexes
+faiss_index/
+chroma_db/
+
+# Local session state trackers
+indexed_files.txt

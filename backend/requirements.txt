@@ -1,0 +1,16 @@
+# Core RAG
+langchain
+langchain-community
+langchain-ollama
+faiss-cpu
+pymupdf
+sentence-transformers
+huggingface-hub
+
+# Backend server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Utilities
+python-dotenv
