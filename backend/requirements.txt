@@ -1,11 +1,13 @@
 # Core RAG
 langchain
 langchain-community
+langchain-classic
 langchain-ollama
 faiss-cpu
 pymupdf
 sentence-transformers
 huggingface-hub
+pytesseract
 
 # Backend server
 fastapi

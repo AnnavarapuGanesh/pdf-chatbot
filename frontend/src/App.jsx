@@ -109,6 +109,7 @@ function App() {
           role: 'assistant',
           content: response.answer,
           sources: response.sources || [],
+          confidence: response.confidence,
         },
       ]);
     } catch (err) {

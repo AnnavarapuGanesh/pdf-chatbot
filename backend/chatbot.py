@@ -16,9 +16,10 @@ class ChatBot:
     Uses llama3.2 for fast text QA and llava:7b-q4_0 for multimodal vision QA.
     """
     
-    def __init__(self, vector_store_manager: VectorStoreManager, model: str = "llama3.2"):
+    def __init__(self, vector_store_manager: VectorStoreManager, model: str = None):
         self.vector_store_manager = vector_store_manager
-        self.model = model
+        self.preferred_model = model or os.getenv("OLLAMA_TEXT_MODEL", "llama3.2")
+        self.model = self.preferred_model
         self.llm = None
         self.memory = None
         self.chain = None
@@ -30,12 +31,33 @@ class ChatBot:
     def _initialize_llm(self):
         """
         Initializes the local Ollama LLM for text Q&A.
+        Auto-detects installed models: uses preferred model if pulled, else falls back to mistral.
         """
         try:
+            active_model = self.preferred_model
+            try:
+                import urllib.request
+                import json
+                req = urllib.request.Request("http://127.0.0.1:11434/api/tags")
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    tags_data = json.loads(resp.read().decode())
+                    available_names = [m.get("name", "").split(":")[0] for m in tags_data.get("models", [])]
+                    if self.preferred_model not in available_names:
+                        # Fallback order
+                        for fallback in ["mistral", "gemma", "llama3.2"]:
+                            if fallback in available_names:
+                                print(f"Model '{self.preferred_model}' not found in Ollama yet; using available model '{fallback}'.")
+                                active_model = fallback
+                                break
+            except Exception as check_err:
+                pass
+                
+            self.model = active_model
             self.llm = OllamaLLM(
                 model=self.model,
                 temperature=0.3
             )
+            print(f"Ollama text LLM initialized with model: '{self.model}'")
         except Exception as e:
             print(f"Error initializing local Ollama model: {e}")
             
@@ -109,9 +131,28 @@ Helpful Answer:"""
                 
         try:
             response = self.chain.invoke({"question": question})
+            source_documents = response.get("source_documents", [])
+            
+            # Fetch similarity scores directly from vector store
+            docs_with_scores = []
+            if self.vector_store_manager.db:
+                try:
+                    docs_with_scores = self.vector_store_manager.db.similarity_search_with_score(question, k=3)
+                except Exception as score_err:
+                    print(f"Error fetching similarity scores: {score_err}")
+                    
+            # Map page content to their respective L2 distance score
+            score_map = {}
+            for doc, score in docs_with_scores:
+                score_map[doc.page_content] = score
+                
+            # Inject scores into metadata of the returned documents
+            for doc in source_documents:
+                doc.metadata["score"] = score_map.get(doc.page_content, None)
+
             return {
                 "answer": response.get("answer", "No response generated."),
-                "source_documents": response.get("source_documents", [])
+                "source_documents": source_documents
             }
         except Exception as e:
             return {
@@ -125,11 +166,23 @@ Helpful Answer:"""
         Retrieves context chunks if documents are loaded to assist the model.
         """
         try:
-            # Get context from retriever
+            # Get context from retriever with similarity scores
             context_str = ""
             source_docs = []
             retriever = self.vector_store_manager.get_retriever(k=2)
-            if retriever is not None:
+            if self.vector_store_manager.db:
+                try:
+                    docs_with_scores = self.vector_store_manager.db.similarity_search_with_score(question, k=2)
+                    for doc, score in docs_with_scores:
+                        doc.metadata["score"] = score
+                        source_docs.append(doc)
+                    context_str = "\n\n".join([doc.page_content for doc in source_docs])
+                except Exception as score_err:
+                    print(f"Error fetching vision similarity scores: {score_err}")
+                    if retriever is not None:
+                        source_docs = retriever.invoke(question)
+                        context_str = "\n\n".join([doc.page_content for doc in source_docs])
+            elif retriever is not None:
                 source_docs = retriever.invoke(question)
                 context_str = "\n\n".join([doc.page_content for doc in source_docs])
                 

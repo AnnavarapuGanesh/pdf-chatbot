@@ -2,26 +2,45 @@ import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 import os
+import io
+
+# Tesseract OCR setup
+try:
+    import pytesseract
+    from PIL import Image
+    TESSERACT_AVAILABLE = True
+    # Auto-detect Tesseract executable on Windows
+    for t_path in [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]:
+        if os.path.exists(t_path):
+            pytesseract.pytesseract.tesseract_cmd = t_path
+            break
+except ImportError:
+    TESSERACT_AVAILABLE = False
 
 class PDFProcessor:
     """
     Handles extracting text from PDF files page-by-page and splitting it into manageable chunks.
     Preserves page number and source file metadata for citation.
+    Includes OCR fallback for scanned documents.
     """
     
     @staticmethod
-    def extract_text_from_pdf(pdf_path: str) -> list[Document]:
+    def extract_text_from_pdf(pdf_path: str, original_filename: str = None) -> list[Document]:
         """
         Extracts text from a PDF file page by page.
         
         Args:
             pdf_path (str): Absolute or relative path to the PDF file.
+            original_filename (str): Optional actual uploaded filename for citation metadata.
             
         Returns:
             list[Document]: A list of LangChain Document objects, one per page.
         """
         documents = []
-        pdf_name = os.path.basename(pdf_path)
+        pdf_name = original_filename if original_filename else os.path.basename(pdf_path)
         
         try:
             # Open PDF using PyMuPDF
@@ -29,6 +48,18 @@ class PDFProcessor:
             for page_num in range(len(doc)):
                 page = doc.load_page(page_num)
                 text = page.get_text()
+                
+                # If page has no native text, attempt OCR fallback
+                if not text.strip() and TESSERACT_AVAILABLE:
+                    try:
+                        pix = page.get_pixmap(dpi=150)
+                        img = Image.open(io.BytesIO(pix.tobytes("png")))
+                        ocr_text = pytesseract.image_to_string(img)
+                        if ocr_text.strip():
+                            text = ocr_text
+                    except Exception as ocr_err:
+                        print(f"OCR note for page {page_num + 1} of {pdf_name}: {ocr_err}")
+                
                 if text.strip():
                     metadata = {
                         "source": pdf_name,

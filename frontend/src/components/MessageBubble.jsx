@@ -25,33 +25,51 @@ const MessageBubble = ({ message }) => {
           <ReactMarkdown>{message.content}</ReactMarkdown>
         )}
 
-        {/* Citations Drawer for Bot Responses */}
-        {!isUser && message.sources && message.sources.length > 0 && (
+        {/* Citations & Confidence Info */}
+        {!isUser && ((message.sources && message.sources.length > 0) || (message.confidence !== undefined && message.confidence !== null)) && (
           <div className="citations-wrapper">
-            <button 
-              className="citations-trigger" 
-              onClick={() => setShowSources(!showSources)}
-            >
-              {showSources ? (
-                <>Hide Sources <ChevronUp size={14} /></>
-              ) : (
-                <>View Sources ({message.sources.length}) <ChevronDown size={14} /></>
+            <div className="bot-meta-footer">
+              {message.sources && message.sources.length > 0 && (
+                <button 
+                  className="citations-trigger" 
+                  onClick={() => setShowSources(!showSources)}
+                >
+                  {showSources ? (
+                    <>Hide Sources <ChevronUp size={14} /></>
+                  ) : (
+                    <>View Sources ({message.sources.length}) <ChevronDown size={14} /></>
+                  )}
+                </button>
               )}
-            </button>
-            
-            <div className={`citations-drawer ${showSources ? 'open' : ''}`}>
-              {message.sources.map((src, idx) => (
-                <div key={idx} className="citation-card">
-                  <div className="citation-meta">
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <FileText size={12} /> {src.source}
-                    </span>
-                    <span>Page {src.page}</span>
-                  </div>
-                  <div className="citation-text">"{src.text}"</div>
+              {message.confidence !== undefined && message.confidence !== null && (
+                <div className="overall-confidence-badge">
+                  Answer Confidence: <span className="confidence-value">{message.confidence}%</span>
                 </div>
-              ))}
+              )}
             </div>
+            
+            {message.sources && message.sources.length > 0 && (
+              <div className={`citations-drawer ${showSources ? 'open' : ''}`}>
+                {message.sources.map((src, idx) => (
+                  <div key={idx} className="citation-card">
+                    <div className="citation-meta">
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <FileText size={12} /> {src.source}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {src.score !== undefined && src.score !== null && (
+                          <span className="relevance-score-badge">
+                            {src.score}% Match
+                          </span>
+                        )}
+                        <span>Page {src.page}</span>
+                      </div>
+                    </div>
+                    <div className="citation-text">"{src.text}"</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

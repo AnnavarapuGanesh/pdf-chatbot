@@ -12,10 +12,15 @@ from chatbot import ChatBot
 
 app = FastAPI(title="PDF Q&A Chatbot API", version="2.0")
 
-# Configure CORS to allow React dev server (port 5173) to communicate
+# Configure CORS to allow React dev server to communicate
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,7 +71,7 @@ async def upload_files(files: List[UploadFile] = File(...)):
             tmp_path = tmp_file.name
             
         try:
-            pages = PDFProcessor.extract_text_from_pdf(tmp_path)
+            pages = PDFProcessor.extract_text_from_pdf(tmp_path, original_filename=file.filename)
             all_documents.extend(pages)
         finally:
             os.unlink(tmp_path)
@@ -106,16 +111,35 @@ async def ask_question(request: QueryRequest):
         
     # Format source document references
     sources = []
+    scores = []
     for doc in response.get("source_documents", []):
+        raw_score = doc.metadata.get("score", None)
+        similarity_percentage = None
+        if raw_score is not None:
+            try:
+                # FAISS/Chroma returns L2 distance; convert to cosine similarity percentage
+                sim = 1.0 - (float(raw_score) / 2.0)
+                similarity_percentage = round(max(0.0, min(1.0, sim)) * 100, 1)
+                scores.append(similarity_percentage)
+            except Exception as parse_err:
+                print(f"Error parsing similarity score: {parse_err}")
+                
         sources.append({
             "source": doc.metadata.get("source", "Unknown"),
             "page": doc.metadata.get("page", "?"),
-            "text": doc.page_content.strip()
+            "text": doc.page_content.strip(),
+            "score": similarity_percentage
         })
+        
+    # Compute overall RAG confidence as the average score of all retrieved sources
+    overall_confidence = None
+    if scores:
+        overall_confidence = round(sum(scores) / len(scores), 1)
         
     return {
         "answer": response.get("answer", "No answer generated."),
-        "sources": sources
+        "sources": sources,
+        "confidence": overall_confidence
     }
 
 @app.get("/files")
